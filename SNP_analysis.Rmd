@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ###Data preparing
-# Requirments 1
+# Requirements 1
 ```{r echo=TRUE}
 library(tidyverse)
 ```
@@ -154,6 +154,146 @@ mutation_wide_data <- pivot_wider(mutation_long_data, names_from = icgc_mutation
 remove(mutation_long_data)
 
 write.csv(mutation_wide_data, file = "AfterPreparingData/mutation_wide_data")
+```
+
+###Models - machine learning
+
+#Requirements 2
+
+```{r}
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(e1071)
+library(cluster)
+library(factoextra)
+library(ClusterR)
+library(corrplot)
+```
+##Hierarchic tree
+
+```{r}
+mutation_wide_data <- read.csv("AfterPreparingData/mutation_wide_data", header = T, stringsAsFactors = T)
+
+mutation_wide_data <- mutation_wide_data[,-1]
+
+tree_1 <- rpart(formula = donor_vital_status ~  ., data = mutation_wide_data)
+
+rpart.plot(tree_1)
+
+png(filename = "Figures/tree.png", units="px", width=2000, height=1600, res=300)
+
+
+dev.off()
+
+```
+
+#Confusion matrix
+
+```{r}
+
+pred_risk_tree <- predict(object = tree_1, newdata = mutation_wide_data, type = "class")
+
+confusionMatrix(data = pred_risk_tree, reference = mutation_wide_data$donor_vital_status, positive = "alive", mode = "everything")
+
+```
+
+##Training/Validation data dividing
+
+```{r}
+
+i <- i %>% 
+  mutate_if(is.character, as.factor) 
+
+split <- createDataPartition(y = mutation_wide_data$donor_vital_status, p = 0.8)
+
+
+train_cancer <- mutation_wide_data[split$Resample1,]
+valid_cancer <- mutation_wide_data[-split$Resample1,]
+
+tree_1 <- rpart(formula = donor_vital_status ~  ., data = mutation_wide_data)
+
+
+pred_risk_train <- predict(object = tree_1, newdata = train_cancer, type = "class")
+
+pred_risk_valid <- predict(object = tree_1,newdata = valid_cancer, type = "class")
+
+```
+#Training_data_confusion_matrix
+
+```{r}
+
+confusionMatrix(data = pred_risk_train, reference = train_cancer$donor_vital_status, positive = "alive", mode = "everything")
+
+```
+
+#Validation_data_confusion_matrix
+
+```{r}
+
+confusionMatrix(data = pred_risk_valid, reference = valid_cancer$donor_vital_status,positive = "alive", mode = "everything")
+```
+##Multiple Linear Regression (MLR) - checking the significance of the mutation
+
+```{r}
+
+MLR_data <- read.csv('AfterPreparingData/mutation_wide_data', header = T, stringsAsFactors = T)
+
+MLR_data <- MLR_data[,-1]
+
+MLR_data <- MLR_data %>% 
+  select(-cancer_type, -donor_age_at_diagnosis) 
+
+
+MLR_data$donor_vital_status <- as.numeric(MLR_data$donor_vital_status)
+
+
+
+MLR_model <- lm(formula = donor_vital_status ~ ., data = MLR_data)
+
+summary(MLR_model)
+
+
+```
+##Corplot
+
+```{r}
+
+MLR_data <- MLR_data %>% 
+cor()
+
+corrplot(MLR_data, method = "square")
+```
+
+
+
+##K-mean
+
+```{r}
+
+
+MLR_data <- read.csv('AfterPreparingData/mutation_wide_data', header = T, stringsAsFactors = T)
+
+MLR_data <- MLR_data[,-1]
+
+MLR_data <- MLR_data %>% 
+  select(-cancer_type, -donor_age_at_diagnosis) 
+
+
+MLR_data$donor_vital_status <- as.numeric(MLR_data$donor_vital_status)
+
+MLR_data <- MLR_data %>% 
+  scale()
+
+Optimal_Clusters_KMeans(data = MLR_data, max_clusters = 15, criterion = "WCSSE")
+
+
+k_mean <- kmeans(MLR_data, centers = 7, nstart = 25)
+
+
+fviz_cluster(k_mean, data = MLR_data)
+
+
 ```
 
 
