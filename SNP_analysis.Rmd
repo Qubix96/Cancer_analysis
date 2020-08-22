@@ -1,0 +1,8 @@
+---
+title: "SNP_analysis"
+author: "Jakub Kubiś"
+date: "22 08 2020"
+output: html_document
+---
+
+
