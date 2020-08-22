@@ -262,7 +262,7 @@ summary(MLR_model)
 MLR_data <- MLR_data %>% 
 cor()
 
-corrplot(MLR_data, method = "square")
+corrplot(MLR_data, method = "color")
 ```
 
 
@@ -272,26 +272,26 @@ corrplot(MLR_data, method = "square")
 ```{r}
 
 
-MLR_data <- read.csv('AfterPreparingData/mutation_wide_data', header = T, stringsAsFactors = T)
+KM_data <- read.csv('AfterPreparingData/mutation_wide_data', header = T, stringsAsFactors = T)
 
-MLR_data <- MLR_data[,-1]
+KM_data <- KM_data[,-1]
 
-MLR_data <- MLR_data %>% 
+KM_data <- KM_data %>% 
   select(-cancer_type, -donor_age_at_diagnosis) 
 
 
-MLR_data$donor_vital_status <- as.numeric(MLR_data$donor_vital_status)
+KM_data$donor_vital_status <- as.numeric(KM_data$donor_vital_status)
 
-MLR_data <- MLR_data %>% 
+KM_data <- KM_data %>% 
   scale()
 
-Optimal_Clusters_KMeans(data = MLR_data, max_clusters = 15, criterion = "WCSSE")
+Optimal_Clusters_KMeans(data = KM_data, max_clusters = 15, criterion = "WCSSE")
 
 
-k_mean <- kmeans(MLR_data, centers = 7, nstart = 25)
+k_mean <- kmeans(KM_data, centers = 7, nstart = 25)
 
 
-fviz_cluster(k_mean, data = MLR_data)
+fviz_cluster(k_mean, data = KM_data, geom = 'text')
 
 
 ```
