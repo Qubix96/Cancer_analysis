@@ -5,4 +5,155 @@ date: "22 08 2020"
 output: html_document
 ---
 
+###Data preparing
+# Requirments 1
+```{r echo=TRUE}
+library(tidyverse)
+```
+
+##Data joining
+#Breast and ovarian data
+
+```{r}
+
+breast <- read.csv("DataBreast/simple_somatic_mutation.open.tsv", sep = '\t', header = TRUE)
+breast <- breast %>% 
+  select(icgc_mutation_id, 
+         icgc_donor_id, 
+         chromosome, 
+         chromosome_start, 
+         chromosome_end,
+         reference_genome_allele,
+         mutated_from_allele,
+         mutated_to_allele,) %>% 
+  distinct()
+
+
+ovary <- read.csv("DataOvary/simple_somatic_mutation.open.tsv", sep = '\t', header = TRUE)
+ovary <- ovary %>% 
+  select(icgc_mutation_id, 
+         icgc_donor_id, 
+         chromosome, 
+         chromosome_start, 
+         chromosome_end,
+         reference_genome_allele,
+         mutated_from_allele,
+         mutated_to_allele) %>% 
+  distinct()
+
+
+ovary$cancer_type <- "Ovarian cancer"
+breast$cancer_type <- "Breast cancer"
+
+patient <- breast %>% 
+  inner_join(ovary, by = 'icgc_mutation_id') %>% 
+  distinct()
+
+patient <- patient %>% 
+  select(icgc_mutation_id) %>% 
+  distinct()
+
+mutation <- rbind(breast, ovary)
+
+mutation <- mutation %>% 
+  filter(icgc_mutation_id %in% patient$icgc_mutation_id)
+         
+
+remove(breast, ovary)
+
+
+```
+
+#Donor data
+
+```{r}
+
+donor_breast <- read.csv("DataBreast/donor.tsv", sep = '\t', header = TRUE)
+
+donor_breast <- donor_breast %>% 
+  select(icgc_donor_id,
+         donor_vital_status, 
+         disease_status_last_followup,
+         donor_age_at_diagnosis,
+         donor_age_at_last_followup)
+
+donor_breast$cancer_type <- "Breast cancer"
+
+donor_ovary <- read.csv("DataOvary/donor.tsv", sep = '\t', header = TRUE)
+
+donor_ovary <- donor_ovary %>% 
+  select(icgc_donor_id,
+         donor_vital_status, 
+         disease_status_last_followup,
+         donor_age_at_diagnosis,
+         donor_age_at_last_followup)
+
+donor_ovary$cancer_type <- 'Ovarian cancer'
+```
+
+#Join donor - mutation
+
+```{r}
+#Join donor - mutation
+
+mutation_breast <- mutation %>% 
+  left_join(donor_breast, by = c('icgc_donor_id', 'cancer_type')) 
+
+mutation_ovary <- mutation %>% 
+  left_join(donor_ovary, by = c('icgc_donor_id', 'cancer_type'))
+
+last <- rbind(mutation_breast, mutation_ovary)  
+
+last <- last %>% 
+  mutate_if(is.character, as.factor) %>% 
+  drop_na()
+
+remove(breast, ovary, donor_breast, donor_ovary, mutation, mutation_breast, mutation_ovary, patient)
+
+write.csv(last, file = "AfterPreparingData/mutation.csv")
+
+remove(last)
+
+
+```
+
+##Selection of the most common mutations
+
+```{r}
+
+
+mutation_long_data <- read.csv("AfterPreparingData/mutation.csv", 
+                               stringsAsFactors = T, header = T)
+
+mutation_long_data <- mutation_long_data[,-1]
+
+
+summary(mutation_long_data)
+
+mutation_long_data <- mutation_long_data %>% 
+  filter(icgc_mutation_id %in% c('MU4468','MU5219', 'MU7870', 'MU24637','MU4807', 'MU17943') ) %>% 
+  distinct()
+
+mutation_long_data <- mutation_long_data %>% 
+  select(icgc_mutation_id, donor_vital_status, donor_age_at_diagnosis, cancer_type) %>% 
+  drop_na() %>% 
+  distinct()
+
+```
+
+#Binary notation for mutations
+
+```{r}
+
+mutation_long_data <- mutation_long_data %>% 
+  mutate(values = "1")
+
+
+mutation_wide_data <- pivot_wider(mutation_long_data, names_from = icgc_mutation_id, values_from = values , values_fill = "0")
+
+remove(mutation_long_data)
+
+write.csv(mutation_wide_data, file = "AfterPreparingData/mutation_wide_data")
+```
+
 
