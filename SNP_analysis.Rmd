@@ -123,9 +123,8 @@ remove(last)
 
 
 mutation_long_data <- read.csv("AfterPreparingData/mutation.csv", 
-                               stringsAsFactors = T, header = T)
+                               stringsAsFactors = T, header = T, row.names = 1)
 
-mutation_long_data <- mutation_long_data[,-1]
 
 
 summary(mutation_long_data)
@@ -173,9 +172,8 @@ library(corrplot)
 ##Hierarchic tree
 
 ```{r}
-mutation_wide_data <- read.csv("AfterPreparingData/mutation_wide_data", header = T, stringsAsFactors = T)
+mutation_wide_data <- read.csv("AfterPreparingData/mutation_wide_data", header = T, stringsAsFactors = T, row.names = 1)
 
-mutation_wide_data <- mutation_wide_data[,-1]
 
 tree_1 <- rpart(formula = donor_vital_status ~  ., data = mutation_wide_data)
 
@@ -202,8 +200,6 @@ confusionMatrix(data = pred_risk_tree, reference = mutation_wide_data$donor_vita
 
 ```{r}
 
-i <- i %>% 
-  mutate_if(is.character, as.factor) 
 
 split <- createDataPartition(y = mutation_wide_data$donor_vital_status, p = 0.8)
 
@@ -237,19 +233,20 @@ confusionMatrix(data = pred_risk_valid, reference = valid_cancer$donor_vital_sta
 
 ```{r}
 
-MLR_data <- read.csv('AfterPreparingData/mutation_wide_data', header = T, stringsAsFactors = T)
+MLR_data <- read.csv('AfterPreparingData/mutation_wide_data', header = T, stringsAsFactors = T , row.names = 1)
 
-MLR_data <- MLR_data[,-1]
 
 MLR_data <- MLR_data %>% 
   select(-cancer_type, -donor_age_at_diagnosis) 
 
-
+MLR_data$donor_vital_status <- as.character(MLR_data$donor_vital_status)
+MLR_data$donor_vital_status[MLR_data$donor_vital_status == 'alive'] <- "1"
+MLR_data$donor_vital_status[MLR_data$donor_vital_status == 'deceased'] <- "0"
 MLR_data$donor_vital_status <- as.numeric(MLR_data$donor_vital_status)
 
 
 
-MLR_model <- lm(formula = donor_vital_status ~ ., data = MLR_data)
+MLR_model <- glm(formula = donor_vital_status ~ ., data = MLR_data, family = 'binomial')
 
 summary(MLR_model)
 
@@ -259,8 +256,9 @@ summary(MLR_model)
 
 ```{r}
 
+
 MLR_data <- MLR_data %>% 
-cor()
+cor(method = "spearman")
 
 corrplot(MLR_data, method = "color")
 ```
@@ -269,12 +267,11 @@ corrplot(MLR_data, method = "color")
 
 ##K-mean
 
+
 ```{r}
 
+KM_data <- read.csv('AfterPreparingData/mutation_wide_data', header = T, stringsAsFactors = T, row.names = 1)
 
-KM_data <- read.csv('AfterPreparingData/mutation_wide_data', header = T, stringsAsFactors = T)
-
-KM_data <- KM_data[,-1]
 
 KM_data <- KM_data %>% 
   select(-cancer_type, -donor_age_at_diagnosis) 
@@ -288,12 +285,46 @@ KM_data <- KM_data %>%
 Optimal_Clusters_KMeans(data = KM_data, max_clusters = 15, criterion = "WCSSE")
 
 
-k_mean <- kmeans(KM_data, centers = 7, nstart = 25)
+k_mean <- eclust(KM_data, "kmeans", nstart = 25, k = 7)
 
 
-fviz_cluster(k_mean, data = KM_data, geom = 'text')
+fviz_cluster(k_mean, data = KM_data, geom = 'point', ggtheme = theme_grey())
 
+
+png(filename = "Figures/clustering.png", units="px", width=2000, height=1600, res=300)
+
+
+dev.off()
 
 ```
+
+##Cluster - binary data
+
+
+```{r}
+
+bin_data <- read.csv('AfterPreparingData/mutation_wide_data', header = T, stringsAsFactors = T, row.names = 1)
+
+
+bin_data <- bin_data %>% 
+  select(-cancer_type, -donor_age_at_diagnosis) 
+
+bin_matrix <- data.matrix(bin_data[,-1])
+rownames(bin_matrix) <- bin_data$donor_vital_status
+
+
+
+library(blockcluster)
+
+data("binarydata")
+
+coclust <- coclusterBinary(bin_matrix, nbcocluster=c(1,2))
+
+summary(coclust)
+
+plot(coclust)
+
+```
+
 
 
