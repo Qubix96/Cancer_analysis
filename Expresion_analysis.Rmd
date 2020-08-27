@@ -1,0 +1,224 @@
+---
+title: "Expression analysis"
+author: "Jakub Kubiś"
+date: "25 08 2020"
+output: html_document
+---
+
+###Analysis exrpession of genes in ovarian/breast cancer
+
+#Requirements 1
+
+```{r}
+library(tidyverse)
+```
+
+#Load and preparing data for breast cancer
+
+```{r}
+breast_expression <- read.csv("DataBreast/exp_array.tsv", header = T, sep = "\t")
+breast_expression <- breast_expression %>% 
+  select(icgc_donor_id, gene_id, normalized_expression_value)
+
+breast_donor <- read.csv("DataBreast/donor.tsv", header = T, sep = "\t")
+breast_donor <- breast_donor %>% 
+  select(icgc_donor_id, donor_vital_status, disease_status_last_followup, donor_age_at_diagnosis)
+ 
+breas_cancer <- breast_expression %>% 
+  left_join(breast_donor, by = 'icgc_donor_id')
+
+write.csv(breas_cancer, file = "AfterPreparingData/breast_expression.csv")
+
+remove(breast_donor, breast_expression, breast_cancer)
+
+matrix <- read.csv("AfterPreparingData/breast_expression.csv")
+
+matrix <- matrix %>% 
+  select(gene_id, normalized_expression_value, donor_vital_status, icgc_donor_id)
+
+matrix <- matrix %>% 
+  group_by(gene_id, icgc_donor_id) %>% 
+  mutate(n=n())
+
+
+matrix <- aggregate(matrix$normalized_expression_value, list(matrix$gene_id, matrix$icgc_donor_id, matrix$donor_vital_status), FUN=median)
+
+matrix <- matrix %>% 
+  rename(gene_id = Group.1,
+         icgc_donor_id = Group.2,
+         donor_vital_status = Group.3,
+         normalized_expression_value = x)
+
+matrix <- pivot_wider(matrix, names_from = gene_id, values_from = normalized_expression_value , values_fill = NA)
+
+write.csv(matrix, file = "AfterPreparingData/df_after_aggregate.csv")
+
+
+matrix <- read.csv("AfterPreparingData/df_after_aggregate.csv", row.names = 1)
+
+matrix <- matrix %>% 
+  select(-icgc_donor_id) 
+ 
+
+
+matrix$donor_vital_status <- as.factor(matrix$donor_vital_status)
+
+library('doParallel')
+cl <- makeCluster(4) 
+registerDoParallel(cl)
+
+tree_breast <- rpart(as.matrix(matrix$donor_vital_status) ~ as.matrix(matrix[, colnames(matrix) != "donor_vital_status"]))
+
+t_breast <- rpart.plot(tree_breast)
+
+png(filename = "Figures/tree_breast_expression.png", units="px", width=2000, height=1600, res=300)
+
+stopCluster(cl)
+
+
+```
+
+
+#Load and preparing data for ovarian cancer
+
+```{r}
+ovarian_expression <- read.csv("DataOvary/exp_array.tsv", header = T, sep = "\t")
+ovarian_expression <- ovarian_expression %>% 
+  select(icgc_donor_id, gene_id, normalized_expression_value)
+
+ovarian_donor <- read.csv("DataOvary/donor.tsv", header = T, sep = "\t")
+ovarian_donor <- ovarian_donor %>% 
+  select(icgc_donor_id, donor_vital_status, disease_status_last_followup, donor_age_at_diagnosis)
+ 
+ovarian_cancer <- ovarian_expression %>% 
+  left_join(ovarian_donor, by = 'icgc_donor_id')
+
+write.csv(ovarian_cancer, file = "AfterPreparingData/ovarian_expression.csv")
+
+remove(ovarian_donor, ovarian_expression, ovarian_cancer)
+
+matrix <- read.csv("AfterPreparingData/ovarian_expression.csv")
+
+matrix <- matrix %>% 
+  select(gene_id, normalized_expression_value, donor_vital_status, icgc_donor_id)
+
+matrix <- aggregate(matrix$normalized_expression_value, list(matrix$gene_id, matrix$icgc_donor_id, matrix$donor_vital_status), FUN=median)
+
+matrix <- matrix %>% 
+  rename(gene_id = Group.1,
+         icgc_donor_id = Group.2,
+         donor_vital_status = Group.3,
+         normalized_expression_value = x)
+
+matrix <- pivot_wider(matrix, names_from = gene_id, values_from = normalized_expression_value , values_fill = NA)
+
+write.csv(matrix, file = "AfterPreparingData/df_after_aggregate_ovarian.csv")
+
+matrix <- read.csv("AfterPreparingData/df_after_aggregate_ovarian.csv", row.names = 1)
+
+matrix <- matrix %>% 
+  select(-icgc_donor_id) %>% 
+  drop_na()
+
+m <- data.matrix(matrix[,-1])
+
+heatmap(m)
+
+row.names(m) <- matrix$donor_vital_status
+
+matrix <- matrix %>% 
+  select('TP53', 'PTEN', 'donor_vital_status') %>% 
+  drop_na()
+
+matrix$donor_vital_status <- as.factor(matrix$donor_vital_status)
+
+library('doParallel')
+cl <- makeCluster(4) 
+registerDoParallel(cl)
+
+tree <- rpart(as.matrix(matrix$donor_vital_status) ~ as.matrix(matrix[, colnames(matrix) != "donor_vital_status"]))
+
+t <- rpart.plot(tree)
+
+png(filename = "Figures/tree_breast_expression.png", units="px", width=2000, height=1600, res=300)
+
+stopCluster(cl)
+ 
+
+```
+
+
+##Linear regression - model
+
+```{r}
+
+LR_PTEN <- lm(SNP_check_PTEN$normalized_expression_value ~ SNP_check_PTEN$donor_vital_status)
+
+summary(LR_PTEN)
+
+ggplot(SNP_check_PTEN, aes(donor_vital_status,normalized_expression_value, fill = donor_vital_status))+
+  geom_violin()+
+  geom_boxplot()
+
+```
+
+```{r}
+
+LR_TP53 <- lm(SNP_check_TP53$normalized_expression_value ~ SNP_check_TP53$donor_vital_status)
+
+summary(LR_TP53)
+
+ggplot(SNP_check_TP53, aes(donor_vital_status,normalized_expression_value, fill = donor_vital_status))+
+  geom_violin()+
+  geom_boxplot()
+
+```
+```{r}
+
+lr <- breas_cancer %>% 
+  select(donor_vital_status, gene_id, normalized_expression_value)
+
+
+l <- lm(normalized_expression_value ~.,data = lr)
+
+summary(l)
+```
+
+
+##Linear regression - model
+
+
+```{r}
+
+LR_PTEN <- lm(SNP_check_PTEN$normalized_expression_value ~ SNP_check_PTEN$donor_vital_status)
+
+summary(LR_PTEN)
+
+ggplot(SNP_check_PTEN, aes(donor_vital_status,normalized_expression_value, fill = donor_vital_status))+
+  geom_violin()+
+  geom_boxplot()
+
+```
+
+```{r}
+
+LR_TP53 <- lm(SNP_check_TP53$normalized_expression_value ~ SNP_check_TP53$donor_vital_status)
+
+summary(LR_TP53)
+
+ggplot(SNP_check_TP53, aes(donor_vital_status,normalized_expression_value, fill = donor_vital_status))+
+  geom_violin()+
+  geom_boxplot()
+
+```
+```{r}
+
+lr <- breas_cancer %>% 
+  select(donor_vital_status, gene_id, normalized_expression_value)
+
+
+l <- lm(normalized_expression_value ~.,data = lr)
+
+summary(l)
+```
+
