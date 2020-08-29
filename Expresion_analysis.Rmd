@@ -13,7 +13,7 @@ output: html_document
 library(tidyverse)
 ```
 
-#Load and preparing data for breast cancer
+###Load and preparing data for breast cancer
 
 ```{r}
 breast_expression <- read.csv("DataBreast/exp_array.tsv", header = T, sep = "\t")
@@ -53,33 +53,120 @@ matrix <- pivot_wider(matrix, names_from = gene_id, values_from = normalized_exp
 
 write.csv(matrix, file = "AfterPreparingData/df_after_aggregate.csv")
 
+```
 
-matrix <- read.csv("AfterPreparingData/df_after_aggregate.csv", row.names = 1)
+#Requirements 2
 
-matrix <- matrix %>% 
+```{r}
+
+library(rpart)
+library(rpart.plot)
+library('doParallel')
+
+```
+
+##Load data breast
+
+
+```{r}
+
+
+matrix_breast <- read.csv("AfterPreparingData/df_after_aggregate.csv", row.names = 1)
+
+matrix_breast <- matrix_breast %>% 
   select(-icgc_donor_id) 
  
 
-
-matrix$donor_vital_status <- as.factor(matrix$donor_vital_status)
-
-library('doParallel')
-cl <- makeCluster(4) 
-registerDoParallel(cl)
-
-tree_breast <- rpart(as.matrix(matrix$donor_vital_status) ~ as.matrix(matrix[, colnames(matrix) != "donor_vital_status"]))
-
-t_breast <- rpart.plot(tree_breast)
-
-png(filename = "Figures/tree_breast_expression.png", units="px", width=2000, height=1600, res=300)
-
-stopCluster(cl)
+matrix_breast$donor_vital_status <- as.factor(matrix_breast$donor_vital_status)
 
 
 ```
 
 
-#Load and preparing data for ovarian cancer
+
+##Decision tree - breast cancer 
+
+```{r}
+cl <- makeCluster(4) 
+registerDoParallel(cl)
+
+
+
+tree_breast <- rpart(as.matrix(matrix_breast$donor_vital_status) ~ as.matrix(matrix_breast[, colnames(matrix_breast) != "donor_vital_status"]))
+
+tiff("Figures/rpart_breast_expression.jpeg" , units="in", width=10, height=5, res=300)
+
+t_breast <- rpart.plot(tree_breast)
+
+dev.off()
+
+
+stopCluster(cl)
+```
+
+##Multiple linear regression
+
+```{r}
+
+matrix_breast <- matrix_breast %>% 
+  select('UTP14A', 'STARD8','KCNV2','IREB2','MED18','IFNA10','UBE2NL', 'donor_vital_status') 
+
+MLR_breast <- lm(as.matrix(as.numeric(matrix_breast$donor_vital_status)) ~ as.matrix(matrix_breast[, colnames(matrix_breast) != "donor_vital_status"]))
+
+summary(MLR_breast)
+
+```
+
+##Violinplot - expression compare
+
+```{r}
+
+ggplot(data = matrix_breast) +
+  geom_violin(aes(donor_vital_status, UTP14A, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, UTP14A, fill = donor_vital_status), width=0.1)
+
+
+ggplot(data = matrix_breast) +
+  geom_violin(aes(donor_vital_status, STARD8, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, STARD8, fill = donor_vital_status), width=0.1)
+
+
+ggplot(data = matrix_breast) +
+  geom_violin(aes(donor_vital_status, KCNV2, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, KCNV2, fill = donor_vital_status), width=0.1)
+
+
+ggplot(data = matrix_breast) +
+  geom_violin(aes(donor_vital_status, IREB2, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, IREB2, fill = donor_vital_status), width=0.1)
+
+
+  
+  
+```
+
+
+
+##Heatmap breast
+
+```{r}
+
+matrix_breast_1 <- data.matrix(matrix_breast[,-1])
+
+row.names(matrix_breast_1) <- matrix_breast$donor_vital_status
+
+remove(matrix_breast)
+
+tiff("Figures/rpart_breast_expression.jpeg" , units="in", width=5, height=5, res=300)
+
+heatmap(matrix_breast_1)
+
+dev.off()
+
+```
+
+
+###Load and preparing data for ovarian cancer
 
 ```{r}
 ovarian_expression <- read.csv("DataOvary/exp_array.tsv", header = T, sep = "\t")
@@ -110,115 +197,122 @@ matrix <- matrix %>%
          donor_vital_status = Group.3,
          normalized_expression_value = x)
 
-matrix <- pivot_wider(matrix, names_from = gene_id, values_from = normalized_expression_value , values_fill = NA)
+matrix <- pivot_wider(matrix, names_from = gene_id, values_from = normalized_expression_value)
 
 write.csv(matrix, file = "AfterPreparingData/df_after_aggregate_ovarian.csv")
 
-matrix <- read.csv("AfterPreparingData/df_after_aggregate_ovarian.csv", row.names = 1)
 
-matrix <- matrix %>% 
-  select(-icgc_donor_id) %>% 
-  drop_na()
+```
 
-m <- data.matrix(matrix[,-1])
 
-heatmap(m)
+##Load data ovary
 
-row.names(m) <- matrix$donor_vital_status
+```{r}
 
-matrix <- matrix %>% 
-  select('TP53', 'PTEN', 'donor_vital_status') %>% 
-  drop_na()
 
-matrix$donor_vital_status <- as.factor(matrix$donor_vital_status)
+matrix_ovary <- read.csv("AfterPreparingData/df_after_aggregate_ovarian.csv", row.names = 1)
 
-library('doParallel')
+matrix_ovary <- matrix_ovary %>% 
+  select(-icgc_donor_id) 
+ 
+
+matrix_ovary$donor_vital_status <- as.factor(matrix_ovary$donor_vital_status)
+
+
+```
+
+
+
+##Decision tree - breast cancer 
+
+```{r}
+
 cl <- makeCluster(4) 
 registerDoParallel(cl)
 
-tree <- rpart(as.matrix(matrix$donor_vital_status) ~ as.matrix(matrix[, colnames(matrix) != "donor_vital_status"]))
+tree_ovary <- rpart(as.matrix(matrix_ovary$donor_vital_status) ~ as.matrix(matrix_ovary[, colnames(matrix_ovary) != "donor_vital_status"]))
 
-t <- rpart.plot(tree)
+tiff("Figures/rpart_ovary_expression.jpeg" , units="in", width=10, height=5, res=300)
 
-png(filename = "Figures/tree_breast_expression.png", units="px", width=2000, height=1600, res=300)
+t_ovary <- rpart.plot(tree_ovary)
+
+dev.off()
+
+```
+
+
+##Multiple linear regression
+
+```{r}
+
+matrix_ovary <- matrix_ovary %>% 
+  select('MON1A', 'SGOL2','PSRC1','MPZL2','C17orf89','DMRTA1','LOC253012','SRF', 'ACTR6','GJB1','ISG20L2','ASB16','VCAM1','IL5','CACNB1','NSF','ZNF780A',
+         'KLHL10','ZC3H14','FBXW10','NR2F1','SMPD3', 'donor_vital_status') 
+
+MLR_ovary <- lm(as.matrix(as.numeric(matrix_ovary$donor_vital_status)) ~ as.matrix(matrix_ovary[, colnames(matrix_ovary) != "donor_vital_status"]))
+
+summary(MLR_ovary)
+
+```
+
+
+##Violinplot - expression compare
+
+```{r}
+
+ggplot(data = matrix_ovary) +
+  geom_violin(aes(donor_vital_status, KLHL10, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, KLHL10, fill = donor_vital_status), width=0.1)
+
+
+ggplot(data = matrix_ovary) +
+  geom_violin(aes(donor_vital_status, FBXW10, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, FBXW10, fill = donor_vital_status), width=0.1)
+
+
+ggplot(data = matrix_ovary) +
+  geom_violin(aes(donor_vital_status, NR2F1, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, NR2F1, fill = donor_vital_status), width=0.1)
+
+
+ggplot(data = matrix_ovary) +
+  geom_violin(aes(donor_vital_status, PSRC1, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, PSRC1, fill = donor_vital_status), width=0.1)
+
+ggplot(data = matrix_ovary) +
+  geom_violin(aes(donor_vital_status, MPZL2, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, MPZL2, fill = donor_vital_status), width=0.1)
+
+ggplot(data = matrix_ovary) +
+  geom_violin(aes(donor_vital_status, LOC253012, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, LOC253012, fill = donor_vital_status), width=0.1)
+
+
+ggplot(data = matrix_ovary) +
+  geom_violin(aes(donor_vital_status, ISG20L2, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, ISG20L2, fill = donor_vital_status), width=0.1)
+
+
+
+  
+  
+```
+
+##Heatmap breast
+
+```{r}
+
+matrix_ovary_1 <- data.matrix(matrix_ovary[,-1])
+
+row.names(matrix_ovary_1) <- matrix_ovary$donor_vital_status
+
+remove(matrix_ovary)
+
+tiff("Figures/heatmap_ovary_expression.jpeg" , units="in", width=5, height=5, res=300)
+
+hm_breast <- heatmap(matrix_ovary_1)
+
+dev.off()
 
 stopCluster(cl)
- 
-
 ```
-
-
-##Linear regression - model
-
-```{r}
-
-LR_PTEN <- lm(SNP_check_PTEN$normalized_expression_value ~ SNP_check_PTEN$donor_vital_status)
-
-summary(LR_PTEN)
-
-ggplot(SNP_check_PTEN, aes(donor_vital_status,normalized_expression_value, fill = donor_vital_status))+
-  geom_violin()+
-  geom_boxplot()
-
-```
-
-```{r}
-
-LR_TP53 <- lm(SNP_check_TP53$normalized_expression_value ~ SNP_check_TP53$donor_vital_status)
-
-summary(LR_TP53)
-
-ggplot(SNP_check_TP53, aes(donor_vital_status,normalized_expression_value, fill = donor_vital_status))+
-  geom_violin()+
-  geom_boxplot()
-
-```
-```{r}
-
-lr <- breas_cancer %>% 
-  select(donor_vital_status, gene_id, normalized_expression_value)
-
-
-l <- lm(normalized_expression_value ~.,data = lr)
-
-summary(l)
-```
-
-
-##Linear regression - model
-
-
-```{r}
-
-LR_PTEN <- lm(SNP_check_PTEN$normalized_expression_value ~ SNP_check_PTEN$donor_vital_status)
-
-summary(LR_PTEN)
-
-ggplot(SNP_check_PTEN, aes(donor_vital_status,normalized_expression_value, fill = donor_vital_status))+
-  geom_violin()+
-  geom_boxplot()
-
-```
-
-```{r}
-
-LR_TP53 <- lm(SNP_check_TP53$normalized_expression_value ~ SNP_check_TP53$donor_vital_status)
-
-summary(LR_TP53)
-
-ggplot(SNP_check_TP53, aes(donor_vital_status,normalized_expression_value, fill = donor_vital_status))+
-  geom_violin()+
-  geom_boxplot()
-
-```
-```{r}
-
-lr <- breas_cancer %>% 
-  select(donor_vital_status, gene_id, normalized_expression_value)
-
-
-l <- lm(normalized_expression_value ~.,data = lr)
-
-summary(l)
-```
-
