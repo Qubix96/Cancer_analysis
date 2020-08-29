@@ -125,20 +125,29 @@ ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, UTP14A, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, UTP14A, fill = donor_vital_status), width=0.1)
 
+ggsave(filename = "Figures/alive_decease_breast_1", dpi = 600)
+
 
 ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, STARD8, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, STARD8, fill = donor_vital_status), width=0.1)
+
+ggsave(filename = "Figures/alive_decease_breast_2", dpi = 600)
 
 
 ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, KCNV2, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, KCNV2, fill = donor_vital_status), width=0.1)
 
+ggsave(filename = "Figures/alive_decease_breast_3", dpi = 600)
+
 
 ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, IREB2, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, IREB2, fill = donor_vital_status), width=0.1)
+
+ggsave(filename = "Figures/alive_decease_breast_4", dpi = 600)
+
 
 
   
@@ -260,41 +269,52 @@ summary(MLR_ovary)
 
 ```{r}
 
+matrix_ovary <- matrix_ovary %>% 
+  filter(donor_vital_status != '')
+
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, KLHL10, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, KLHL10, fill = donor_vital_status), width=0.1)
 
+ggsave(filename = "Figures/alive_decease_ovary_1", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, FBXW10, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, FBXW10, fill = donor_vital_status), width=0.1)
 
+ggsave(filename = "Figures/alive_decease_ovary_2", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, NR2F1, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, NR2F1, fill = donor_vital_status), width=0.1)
 
+ggsave(filename = "Figures/alive_decease_ovary_3", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, PSRC1, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, PSRC1, fill = donor_vital_status), width=0.1)
 
+ggsave(filename = "Figures/alive_decease_ovary_4", dpi = 600)
+
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, MPZL2, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, MPZL2, fill = donor_vital_status), width=0.1)
 
+ggsave(filename = "Figures/alive_decease_ovary_5", dpi = 600)
+
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, LOC253012, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, LOC253012, fill = donor_vital_status), width=0.1)
+
+ggsave(filename = "Figures/alive_decease_ovary_6", dpi = 600)
 
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, ISG20L2, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, ISG20L2, fill = donor_vital_status), width=0.1)
 
+ggsave(filename = "Figures/alive_decease_ovary_7", dpi = 600)
 
-
-  
   
 ```
 
