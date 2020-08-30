@@ -1,0 +1,366 @@
+---
+title: "CNA_analysis"
+author: "Jakub Kubiś"
+date: "24 08 2020"
+output: html_document
+---
+
+###Data preparing
+# Requirements 1
+```{r echo=TRUE}
+library(tidyverse)
+```
+
+##Data joining
+#Breast and ovarian data
+
+```{r}
+
+breast_cna <- read.csv("DataBreast/copy_number_somatic_mutation.tsv.gz", sep = '\t', header = TRUE)
+breast_cna <- breast_cna %>% 
+  select(chromosome,
+         chromosome_start,
+         segment_mean,
+         icgc_donor_id) 
+  
+breast_cna$cna_location <- paste0('chromosome: ',
+                                  breast_cna$chromosome,' : ',
+                                  breast_cna$chromosome_start)
+breast_cna <- breast_cna %>% 
+  select(-chromosome, -chromosome_start)
+
+
+ovary_cna <- read.csv("DataOvary/copy_number_somatic_mutation.tsv.gz", sep = '\t', header = TRUE)
+ovary_cna <- ovary_cna %>% 
+  select(chromosome,
+         chromosome_start,
+         segment_mean,
+         icgc_donor_id)
+  
+ovary_cna$cna_location <- paste0('chromosome: ',
+                                  ovary_cna$chromosome,' : ',
+                                  ovary_cna$chromosome_start)
+
+ovary_cna <- ovary_cna %>% 
+  select(-chromosome, -chromosome_start)
+
+patient <- breast_cna %>% 
+  inner_join(ovary_cna, by = 'cna_location') %>% 
+  distinct()
+
+patient <- patient %>% 
+  select(cna_location) %>% 
+  distinct()
+
+mutation_cna <- rbind(breast_cna, ovary_cna)
+
+mutation_cna <- mutation_cna %>% 
+  filter(cna_location %in% patient$cna_location)
+         
+
+remove(breast_cna, ovary_cna, patient)
+
+
+```
+
+#Donor data
+
+```{r}
+
+donor_breast <- read.csv("DataBreast/donor.tsv", sep = '\t', header = TRUE)
+
+donor_breast <- donor_breast %>% 
+  select(icgc_donor_id,
+         donor_vital_status, 
+         disease_status_last_followup,
+         donor_age_at_diagnosis,
+         donor_age_at_last_followup,
+         donor_sex) %>%
+  filter(donor_sex == 'female')
+
+donor_breast$cancer_type <- "Breast cancer"
+
+donor_ovary <- read.csv("DataOvary/donor.tsv", sep = '\t', header = TRUE)
+
+donor_ovary <- donor_ovary %>% 
+  select(icgc_donor_id,
+         donor_vital_status, 
+         disease_status_last_followup,
+         donor_age_at_diagnosis,
+         donor_age_at_last_followup,
+         donor_sex) %>%
+  filter(donor_sex == 'female')
+
+donor_ovary$cancer_type <- 'Ovarian cancer'
+```
+
+#Join donor - mutation
+
+```{r}
+
+
+mutation_breast_cna <- mutation_cna %>% 
+  left_join(donor_breast, by = 'icgc_donor_id') 
+
+mutation_ovary_cna <- mutation_cna %>% 
+  left_join(donor_ovary, by = 'icgc_donor_id')
+
+cna <- rbind(mutation_breast_cna, mutation_ovary_cna)  
+
+cna <- cna %>% 
+  mutate_if(is.character, as.factor) %>% 
+  drop_na() 
+  
+
+remove(breast, ovary, donor_breast, donor_ovary, mutation_cna, mutation_breast_cna, mutation_ovary_cna, patient)
+
+write.csv(cna, file = "AfterPreparingData/cna_prepared.csv")
+
+remove(cna)
+
+
+```
+
+
+###Models - machine learning
+
+#Requirements 2
+
+```{r}
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+
+```
+
+#Wide-data preparing for models
+
+```{r}
+
+mutation_cna_long_data <- read.csv("AfterPreparingData/cna_prepared.csv", 
+                               stringsAsFactors = T, header = T, row.names = 1)
+
+
+
+mutation_cna_long_data <- mutation_cna_long_data %>% 
+  select(cna_location, donor_vital_status, segment_mean, icgc_donor_id) %>% 
+  filter(donor_vital_status != "")
+
+mutation_cna_long_data <- aggregate(mutation_cna_long_data$segment_mean, list(mutation_cna_long_data$cna_location, mutation_cna_long_data$icgc_donor_id, mutation_cna_long_data$donor_vital_status), FUN=median)
+
+mutation_cna_long_data <- mutation_cna_long_data %>% 
+  rename(cna_location = Group.1,
+         icgc_donor_id = Group.2,
+         donor_vital_status = Group.3,
+         segment_mean = x)
+
+
+
+mutation_cna_wide_data <- pivot_wider(mutation_cna_long_data, names_from = cna_location, values_from = segment_mean , values_fill = 0)
+
+
+mutation_cna_wide_data <- mutation_cna_wide_data %>% 
+  select(-icgc_donor_id) %>% 
+  distinct()
+
+
+
+remove(mutation_cna_long_data)
+
+write.csv(mutation_cna_wide_data, file = "AfterPreparingData/mutation_cna_wide_data.csv")
+```
+
+
+#Pararellation
+
+```{r}
+
+library('doParallel')
+
+cl <- makeCluster(4) 
+registerDoParallel(cl)
+
+```
+
+
+##Hierarchic tree
+
+```{r}
+
+mutation_cna_wide_data <- read.csv("AfterPreparingData/mutation_cna_wide_data.csv", header = T, stringsAsFactors = T, row.names = 1)
+
+
+tree_1 <-  rpart(as.matrix(mutation_cna_wide_data$donor_vital_status) ~ as.matrix(mutation_cna_wide_data[, colnames(mutation_cna_wide_data) != "donor_vital_status"]))
+
+
+jpeg("Figures/cna_mean_combined.jpeg" , units="in", width=15, height=5, res=300)
+
+rpart.plot(tree_1)
+
+
+
+dev.off()
+
+```
+
+#Confusion matrix
+
+```{r}
+
+pred_risk_tree <- predict(object = tree_1, newdata = mutation_cna_wide_data, type = "class")
+
+confusionMatrix(data = pred_risk_tree, reference = mutation_cna_wide_data$donor_vital_status, positive = "alive", mode = "everything")
+
+```
+
+##Training/Validation data dividing
+
+```{r}
+
+
+split <- createDataPartition(y = mutation_cna_wide_data$donor_vital_status, p = 0.8)
+
+
+train_cancer <- mutation_cna_wide_data[split$Resample1,]
+valid_cancer <- mutation_cna_wide_data[-split$Resample1,]
+
+tree_1 <- rpart(formula = donor_vital_status ~  ., data = mutation_cna_wide_data)
+
+
+pred_risk_train <- predict(object = tree_1, newdata = train_cancer, type = "class")
+
+pred_risk_valid <- predict(object = tree_1,newdata = valid_cancer, type = "class")
+
+```
+#Training_data_confusion_matrix
+
+```{r}
+
+confusionMatrix(data = pred_risk_train, reference = train_cancer$donor_vital_status, positive = "alive", mode = "everything")
+
+```
+
+#Validation_data_confusion_matrix
+
+```{r}
+
+confusionMatrix(data = pred_risk_valid, reference = valid_cancer$donor_vital_status,positive = "alive", mode = "everything")
+```
+
+##Multiple Linear Regression (MLR) - checking the significance of the mutation
+
+```{r}
+
+mutation_cna_wide_data <- read.csv('AfterPreparingData/mutation_cna_wide_data.csv', header = T, stringsAsFactors = T , row.names = 1)
+
+
+mutation_cna_wide_data <- mutation_cna_wide_data %>% 
+  select('chromosome: 2 : 146877806', 'chromosome: 9 : 23363115', 'chromosome: 20 : 1561580',
+         'chromosome: 8 : 39388299', 'chromosome: 8 : 115650697', 'chromosome: 6 : 53935348',
+         'chromosome: 6 : 77461073', 'chromosome: 7 : 64637128', 'chromosome: 5 : 173205058',
+         'chromosome: 4 : 10234214', 'chromosome: 10 : 24377674', 'chromosome: 18 : 5963763',
+         'chromosome: 1 : 110242953', 'chromosome: 16 : 15048768', 'chromosome: 7 : 109453982',
+         'chromosome: 12 : 9637909', 'chromosome: 3 : 192886435', 'chromosome: 3 : 195478694',
+         'chromosome: 1 : 169242401', 'chromosome: 20 : 1590257', 'chromosome: 8 : 24979904',
+         'chromosome: 11 : 4976865', 'donor_vital_status') 
+
+mutation_cna_wide_data$donor_vital_status <- as.numeric(mutation_cna_wide_data$donor_vital_status)
+
+MLR_model <- lm(as.matrix(as.numeric(mutation_cna_wide_data$donor_vital_status)) ~ as.matrix(mutation_cna_wide_data[, colnames(mutation_cna_wide_data) != "donor_vital_status"]))
+
+summary(MLR_model)
+
+
+
+```
+#Wide-data preparing for plots
+
+```{r}
+
+mutation_cna_long_data <- read.csv("AfterPreparingData/cna_prepared.csv", 
+                               stringsAsFactors = T, header = T, row.names = 1)
+
+
+
+mutation_cna_long_data <- mutation_cna_long_data %>% 
+  select(cna_location, donor_vital_status, segment_mean, icgc_donor_id) %>% 
+  filter(donor_vital_status != "")
+
+mutation_cna_long_data <- aggregate(mutation_cna_long_data$segment_mean, list(mutation_cna_long_data$cna_location, mutation_cna_long_data$icgc_donor_id, mutation_cna_long_data$donor_vital_status), FUN=median)
+
+mutation_cna_long_data <- mutation_cna_long_data %>% 
+  rename(cna_location = Group.1,
+         icgc_donor_id = Group.2,
+         donor_vital_status = Group.3,
+         segment_mean = x)
+
+
+
+mutation_cna_wide_data <- pivot_wider(mutation_cna_long_data, names_from = cna_location, values_from = segment_mean , values_fill = NA)
+
+
+mutation_cna_wide_data <- mutation_cna_wide_data %>% 
+  select(-icgc_donor_id) %>% 
+  distinct()
+
+
+
+remove(mutation_cna_long_data)
+
+```
+
+#Violin-box plots
+
+```{r}
+
+ggplot(data = mutation_cna_wide_data) +
+  geom_violin(aes(donor_vital_status, `chromosome: 2 : 146877806`, fill = donor_vital_status), na.rm = T)+
+  geom_boxplot(aes(donor_vital_status, `chromosome: 2 : 146877806`, fill = donor_vital_status), na.rm = T, width=0.1)
+ggsave(filename = "Figures/alive_decease_cna_1.jpeg", dpi = 600)
+
+ggplot(data = mutation_cna_wide_data) +
+  geom_violin(aes(donor_vital_status, `chromosome: 9 : 23363115`, fill = donor_vital_status), na.rm = T)+
+  geom_boxplot(aes(donor_vital_status, `chromosome: 9 : 23363115`, fill = donor_vital_status), na.rm = T, width=0.1)
+ggsave(filename = "Figures/alive_decease_cna_2.jpeg", dpi = 600)
+
+ggplot(data = mutation_cna_wide_data) +
+  geom_violin(aes(donor_vital_status, `chromosome: 20 : 1561580`, fill = donor_vital_status), na.rm = T)+
+  geom_boxplot(aes(donor_vital_status, `chromosome: 20 : 1561580`, fill = donor_vital_status), na.rm = T, width=0.1)
+ggsave(filename = "Figures/alive_decease_cna_3.jpeg", dpi = 600)
+
+ggplot(data = mutation_cna_wide_data) +
+  geom_violin(aes(donor_vital_status, `chromosome: 5 : 173205058`, fill = donor_vital_status), na.rm = T)+
+  geom_boxplot(aes(donor_vital_status, `chromosome: 5 : 173205058`, fill = donor_vital_status), na.rm = T, width=0.1)
+ggsave(filename = "Figures/alive_decease_cna_4.jpeg", dpi = 600)
+
+ggplot(data = mutation_cna_wide_data) +
+  geom_violin(aes(donor_vital_status, `chromosome: 10 : 24377674`, fill = donor_vital_status), na.rm = T)+
+  geom_boxplot(aes(donor_vital_status, `chromosome: 10 : 24377674`, fill = donor_vital_status), na.rm = T, width=0.1)
+ggsave(filename = "Figures/alive_decease_cna_5.jpeg", dpi = 600)
+
+ggplot(data = mutation_cna_wide_data) +
+  geom_violin(aes(donor_vital_status, `chromosome: 18 : 5963763`, fill = donor_vital_status), na.rm = T)+
+  geom_boxplot(aes(donor_vital_status, `chromosome: 18 : 5963763`, fill = donor_vital_status), na.rm = T, width=0.1)
+ggsave(filename = "Figures/alive_decease_cna_6.jpeg", dpi = 600)
+
+ggplot(data = mutation_cna_wide_data) +
+  geom_violin(aes(donor_vital_status, `chromosome: 3 : 195478694`, fill = donor_vital_status), na.rm = T)+
+  geom_boxplot(aes(donor_vital_status, `chromosome: 3 : 195478694`, fill = donor_vital_status), na.rm = T, width=0.1)
+ggsave(filename = "Figures/alive_decease_cna_7.jpeg", dpi = 600)
+
+ggplot(data = mutation_cna_wide_data) +
+  geom_violin(aes(donor_vital_status, `chromosome: 20 : 1590257`, fill = donor_vital_status), na.rm = T)+
+  geom_boxplot(aes(donor_vital_status, `chromosome: 20 : 1590257`, fill = donor_vital_status), na.rm = T, width=0.1)
+ggsave(filename = "Figures/alive_decease_cna_8.jpeg", dpi = 600)
+
+ggplot(data = mutation_cna_wide_data) +
+  geom_violin(aes(donor_vital_status, `chromosome: 11 : 4976865`, fill = donor_vital_status), na.rm = T)+
+  geom_boxplot(aes(donor_vital_status, `chromosome: 11 : 4976865`, fill = donor_vital_status), na.rm = T, width=0.1)
+ggsave(filename = "Figures/alive_decease_cna_9.jpeg", dpi = 600)
+
+
+
+```
+
+
+
