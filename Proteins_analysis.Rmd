@@ -1,0 +1,162 @@
+---
+title: "Proteins_analysis"
+author: "Jakub Kubiś"
+date: "30 08 2020"
+output: html_document
+---
+
+###Analysis exrpession of genes in ovarian/breast cancer
+
+#Requirements 1
+
+```{r}
+library(tidyverse)
+```
+
+###Load and preparing data for breast cancer
+
+```{r}
+breast_proteins <- read.csv("DataBreast/protein_expression.tsv", header = T, sep = "\t")
+breast_proteins <- breast_proteins %>% 
+  select(icgc_donor_id, gene_name, normalized_expression_level)
+
+breast_donor <- read.csv("DataBreast/donor.tsv", header = T, sep = "\t")
+breast_donor <- breast_donor %>% 
+  select(icgc_donor_id, donor_vital_status, disease_status_last_followup, donor_age_at_diagnosis)
+ 
+breast_cancer <- breast_proteins %>% 
+  left_join(breast_donor, by = 'icgc_donor_id')
+
+write.csv(breast_cancer, file = "AfterPreparingData/breast_protein_expression.csv")
+
+remove(breast_donor, breast_proteins, breast_cancer)
+
+proteins <- read.csv("AfterPreparingData/breast_protein_expression.csv")
+
+proteins <- proteins %>% 
+  select(gene_name, normalized_expression_level, donor_vital_status, icgc_donor_id)
+
+
+proteins <- aggregate(proteins$normalized_expression_level, list(proteins$gene_name, proteins$icgc_donor_id, proteins$donor_vital_status), FUN=median)
+
+proteins <- proteins %>% 
+  rename(gene_name = Group.1,
+         icgc_donor_id = Group.2,
+         donor_vital_status = Group.3,
+         normalized_expression_level = x)
+
+proteins <- pivot_wider(proteins, names_from = gene_name, values_from = normalized_expression_level , values_fill = NA)
+
+write.csv(proteins, file = "AfterPreparingData/breast_protein_expression_wide.csv")
+
+```
+
+#Requirements 2
+
+```{r}
+
+library(rpart)
+library(rpart.plot)
+
+
+```
+
+##Load data breast
+
+
+```{r}
+
+
+proteins_breast <- read.csv("AfterPreparingData/breast_protein_expression_wide.csv", row.names = 1)
+
+proteins_breast <- proteins_breast %>% 
+  select(-icgc_donor_id) 
+ 
+
+proteins_breast$donor_vital_status <- as.factor(proteins_breast$donor_vital_status)
+
+
+```
+
+#Parallelation 
+
+```{r}
+
+library('doParallel')
+
+cl <- makeCluster(4) 
+registerDoParallel(cl)
+
+```
+
+
+##Decision tree - breast cancer 
+
+```{r}
+
+tree_breast <- rpart(as.matrix(proteins_breast$donor_vital_status) ~ as.matrix(proteins_breast[, colnames(proteins_breast) != "donor_vital_status"]))
+
+tiff("Figures/rpart_breast_proteins.jpeg" , units="in", width=10, height=5, res=300)
+
+t_breast <- rpart.plot(tree_breast)
+
+dev.off()
+
+
+```
+
+##Multiple linear regression
+
+```{r}
+
+proteins_breast <- proteins_breast %>% 
+  select('FN1', 'CCNE1','ITGA2','BAK1','PIK3CA', 'donor_vital_status') 
+
+MLR_breast <- lm(as.matrix(as.numeric(proteins_breast$donor_vital_status)) ~ as.matrix(proteins_breast[, colnames(proteins_breast) != "donor_vital_status"]))
+
+summary(MLR_breast)
+
+
+
+
+```
+
+##Violinplot - protein compare
+
+```{r}
+
+ggplot(data = proteins_breast) +
+  geom_violin(aes(donor_vital_status, FN1, fill = donor_vital_status))+
+  geom_boxplot(aes(donor_vital_status, FN1, fill = donor_vital_status), width=0.1)
+
+ggsave(filename = "Figures/alive_decease_breast_proteins_1.jpeg", dpi = 600)
+
+  
+```
+
+
+
+##Heatmap breast
+
+```{r}
+
+m <- proteins_breast %>% 
+  select(-donor_vital_status)
+
+matrix_breast_proteins <- data.matrix(m) 
+  
+
+row.names(matrix_breast_proteins) <- proteins_breast$donor_vital_status
+
+remove(m)
+
+tiff("Figures/rpart_breast_expression.jpeg" , units="in", width=5, height=5, res=300)
+
+heatmap(matrix_breast_proteins)
+
+dev.off()
+
+stopCluster(cl)
+
+```
+
