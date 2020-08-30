@@ -82,15 +82,17 @@ matrix_breast$donor_vital_status <- as.factor(matrix_breast$donor_vital_status)
 
 ```
 
+#Pararellation
 
+```{r}
+library('doParallel')
+cl <- makeCluster(4) 
+registerDoParallel(cl)
+```
 
 ##Decision tree - breast cancer 
 
 ```{r}
-cl <- makeCluster(4) 
-registerDoParallel(cl)
-
-
 
 tree_breast <- rpart(as.matrix(matrix_breast$donor_vital_status) ~ as.matrix(matrix_breast[, colnames(matrix_breast) != "donor_vital_status"]))
 
@@ -125,28 +127,28 @@ ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, UTP14A, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, UTP14A, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_breast_1", dpi = 600)
+ggsave(filename = "Figures/alive_decease_breast_1.jpeg", dpi = 600)
 
 
 ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, STARD8, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, STARD8, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_breast_2", dpi = 600)
+ggsave(filename = "Figures/alive_decease_breast_2.jpeg", dpi = 600)
 
 
 ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, KCNV2, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, KCNV2, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_breast_3", dpi = 600)
+ggsave(filename = "Figures/alive_decease_breast_3.jpeg", dpi = 600)
 
 
 ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, IREB2, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, IREB2, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_breast_4", dpi = 600)
+ggsave(filename = "Figures/alive_decease_breast_4.jpeg", dpi = 600)
 
 
 
@@ -166,7 +168,7 @@ row.names(matrix_breast_1) <- matrix_breast$donor_vital_status
 
 remove(matrix_breast)
 
-tiff("Figures/rpart_breast_expression.jpeg" , units="in", width=5, height=5, res=300)
+jpeg("Figures/rpart_breast_expression.jpeg" , units="in", width=5, height=5, res=300)
 
 heatmap(matrix_breast_1)
 
@@ -241,7 +243,7 @@ registerDoParallel(cl)
 
 tree_ovary <- rpart(as.matrix(matrix_ovary$donor_vital_status) ~ as.matrix(matrix_ovary[, colnames(matrix_ovary) != "donor_vital_status"]))
 
-tiff("Figures/rpart_ovary_expression.jpeg" , units="in", width=10, height=5, res=300)
+jpeg("Figures/rpart_ovary_expression.jpeg" , units="in", width=10, height=5, res=300)
 
 t_ovary <- rpart.plot(tree_ovary)
 
