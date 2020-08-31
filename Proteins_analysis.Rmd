@@ -11,6 +11,8 @@ output: html_document
 
 ```{r}
 library(tidyverse)
+Sys.setenv(LANG = "en")
+set.seed(123)
 ```
 
 ###Load and preparing data for breast cancer
@@ -57,7 +59,8 @@ write.csv(proteins, file = "AfterPreparingData/breast_protein_expression_wide.cs
 
 library(rpart)
 library(rpart.plot)
-
+library('doParallel')
+library(caret)
 
 ```
 
@@ -82,8 +85,6 @@ proteins_breast$donor_vital_status <- as.factor(proteins_breast$donor_vital_stat
 
 ```{r}
 
-library('doParallel')
-
 cl <- makeCluster(4) 
 registerDoParallel(cl)
 
@@ -105,6 +106,42 @@ dev.off()
 
 ```
 
+##Training/Validation data dividing - breast
+
+```{r}
+split <- createDataPartition(y = proteins_breast$donor_vital_status, p = 0.8)
+
+train_cancer <- proteins_breast[split$Resample1,]
+valid_cancer <- proteins_breast[-split$Resample1,]
+
+data <- train_cancer
+remove(train_cancer)
+
+tree_1 <- rpart(as.matrix(donor_vital_status) ~ as.matrix(data[, colnames(data) != "donor_vital_status"]), data = data)
+```
+#Training_data_confusion_matrix
+
+```{r}
+
+pred_risk_train <- predict(object = tree_1, newdata = data, type = "class")
+
+confusionMatrix(data = pred_risk_train, reference = data$donor_vital_status, positive = "alive", mode = "everything")
+```
+
+#Validation_data_confusion_matrix
+
+```{r}
+
+data <- valid_cancer
+
+pred_risk_valid <- predict(object = tree_1, newdata = data, type = "class")
+
+confusionMatrix(data = pred_risk_valid, reference = data$donor_vital_status,positive = "alive", mode = "everything")
+
+remove(tree_1, split, data, valid_cancer, pred_risk_train, pred_risk_valid)
+```
+
+
 ##Multiple linear regression
 
 ```{r}
@@ -112,7 +149,7 @@ dev.off()
 proteins_breast <- proteins_breast %>% 
   select('FN1', 'CCNE1','ITGA2','BAK1','PIK3CA', 'donor_vital_status') 
 
-MLR_breast <- lm(as.matrix(as.numeric(proteins_breast$donor_vital_status)) ~ as.matrix(proteins_breast[, colnames(proteins_breast) != "donor_vital_status"]))
+MLR_breast <- glm(as.matrix(as.numeric(proteins_breast$donor_vital_status)) ~ as.matrix(proteins_breast[, colnames(proteins_breast) != "donor_vital_status"]))
 
 summary(MLR_breast)
 
