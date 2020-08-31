@@ -9,6 +9,8 @@ output: html_document
 # Requirements 1
 ```{r echo=TRUE}
 library(tidyverse)
+Sys.setenv(LANG = "en")
+set.seed(123)
 ```
 
 ##Data joining
@@ -130,16 +132,14 @@ remove(cna)
 library(tidyverse)
 library(rpart)
 library(rpart.plot)
-
+library(caret)
 ```
 
 #Wide-data preparing for models
 
 ```{r}
 
-mutation_cna_long_data <- read.csv("AfterPreparingData/cna_prepared.csv", 
-                               stringsAsFactors = T, header = T, row.names = 1)
-
+mutation_cna_long_data <- read.csv("AfterPreparingData/cna_prepared.csv", stringsAsFactors = T, header = T, row.names = 1)
 
 
 mutation_cna_long_data <- mutation_cna_long_data %>% 
@@ -203,49 +203,39 @@ dev.off()
 
 ```
 
-#Confusion matrix
-
-```{r}
-
-pred_risk_tree <- predict(object = tree_1, newdata = mutation_cna_wide_data, type = "class")
-
-confusionMatrix(data = pred_risk_tree, reference = mutation_cna_wide_data$donor_vital_status, positive = "alive", mode = "everything")
-
-```
-
 ##Training/Validation data dividing
 
 ```{r}
 
-
 split <- createDataPartition(y = mutation_cna_wide_data$donor_vital_status, p = 0.8)
-
 
 train_cancer <- mutation_cna_wide_data[split$Resample1,]
 valid_cancer <- mutation_cna_wide_data[-split$Resample1,]
 
-tree_1 <- rpart(formula = donor_vital_status ~  ., data = mutation_cna_wide_data)
+data <- train_cancer
+remove(train_cancer)
 
-
-pred_risk_train <- predict(object = tree_1, newdata = train_cancer, type = "class")
-
-pred_risk_valid <- predict(object = tree_1,newdata = valid_cancer, type = "class")
-
+tree_1 <- rpart(as.matrix(donor_vital_status) ~ as.matrix(data[, colnames(data) != "donor_vital_status"]), data = data)
 ```
 #Training_data_confusion_matrix
 
 ```{r}
+pred_risk_train <- predict(object = tree_1, newdata = data, type = "class")
 
-confusionMatrix(data = pred_risk_train, reference = train_cancer$donor_vital_status, positive = "alive", mode = "everything")
-
+confusionMatrix(data = pred_risk_train, reference = data$donor_vital_status, positive = "alive", mode = "everything")
 ```
 
 #Validation_data_confusion_matrix
 
 ```{r}
+data <- valid_cancer
+pred_risk_valid <- predict(object = tree_1, newdata = data, type = "class")
 
-confusionMatrix(data = pred_risk_valid, reference = valid_cancer$donor_vital_status,positive = "alive", mode = "everything")
+confusionMatrix(data = pred_risk_valid, reference = data$donor_vital_status,positive = "alive", mode = "everything")
+
+remove(tree_1, split, data, valid_cancer, pred_risk_train, pred_risk_valid)
 ```
+
 
 ##Multiple Linear Regression (MLR) - checking the significance of the mutation
 
