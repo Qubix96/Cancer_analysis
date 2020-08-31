@@ -11,11 +11,14 @@ output: html_document
 
 ```{r}
 library(tidyverse)
+Sys.setenv(LANG = "en")
+set.seed(123)
 ```
 
 ###Load and preparing data for breast cancer
 
 ```{r}
+
 breast_expression <- read.csv("DataBreast/exp_array.tsv", header = T, sep = "\t")
 breast_expression <- breast_expression %>% 
   select(icgc_donor_id, gene_id, normalized_expression_value)
@@ -35,11 +38,6 @@ matrix <- read.csv("AfterPreparingData/breast_expression.csv")
 
 matrix <- matrix %>% 
   select(gene_id, normalized_expression_value, donor_vital_status, icgc_donor_id)
-
-matrix <- matrix %>% 
-  group_by(gene_id, icgc_donor_id) %>% 
-  mutate(n=n())
-
 
 matrix <- aggregate(matrix$normalized_expression_value, list(matrix$gene_id, matrix$icgc_donor_id, matrix$donor_vital_status), FUN=median)
 
@@ -62,6 +60,7 @@ write.csv(matrix, file = "AfterPreparingData/df_after_aggregate.csv")
 library(rpart)
 library(rpart.plot)
 library('doParallel')
+library(caret)
 
 ```
 
@@ -85,7 +84,6 @@ matrix_breast$donor_vital_status <- as.factor(matrix_breast$donor_vital_status)
 #Pararellation
 
 ```{r}
-library('doParallel')
 cl <- makeCluster(4) 
 registerDoParallel(cl)
 ```
@@ -106,6 +104,44 @@ dev.off()
 stopCluster(cl)
 ```
 
+##Training/Validation data dividing - breast
+
+```{r}
+
+split <- createDataPartition(y = matrix_breast$donor_vital_status, p = 0.8)
+train_cancer <- matrix_breast[split$Resample1,]
+valid_cancer <- matrix_breast[-split$Resample1,]
+remove(matrix_breast)
+
+data <- train_cancer
+remove(train_cancer)
+
+tree_1 <- rpart(as.matrix(donor_vital_status) ~ as.matrix(data[, colnames(data) != "donor_vital_status"]), data = data)
+
+```
+#Training_data_confusion_matrix
+
+```{r}
+
+pred_risk_train <- predict(object = tree_1, newdata = data, type = "class")
+
+confusionMatrix(data = pred_risk_train, reference = data$donor_vital_status, positive = "alive", mode = "everything")
+```
+
+#Validation_data_confusion_matrix
+
+```{r}
+
+data <- valid_cancer
+
+pred_risk_valid <- predict(object = tree_1, newdata = data, type = "class")
+
+confusionMatrix(data = pred_risk_valid, reference = data$donor_vital_status,positive = "alive", mode = "everything")
+
+remove(tree_1, split, data, valid_cancer, pred_risk_train, pred_risk_valid)
+```
+
+
 ##Multiple linear regression
 
 ```{r}
@@ -113,7 +149,7 @@ stopCluster(cl)
 matrix_breast <- matrix_breast %>% 
   select('UTP14A', 'STARD8','KCNV2','IREB2','MED18','IFNA10','UBE2NL', 'donor_vital_status') 
 
-MLR_breast <- lm(as.matrix(as.numeric(matrix_breast$donor_vital_status)) ~ as.matrix(matrix_breast[, colnames(matrix_breast) != "donor_vital_status"]))
+MLR_breast <- glm(as.matrix(as.numeric(matrix_breast$donor_vital_status)) ~ as.matrix(matrix_breast[, colnames(matrix_breast) != "donor_vital_status"]))
 
 summary(MLR_breast)
 
@@ -143,16 +179,6 @@ ggplot(data = matrix_breast) +
 
 ggsave(filename = "Figures/alive_decease_breast_3.jpeg", dpi = 600)
 
-
-ggplot(data = matrix_breast) +
-  geom_violin(aes(donor_vital_status, IREB2, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, IREB2, fill = donor_vital_status), width=0.1)
-
-ggsave(filename = "Figures/alive_decease_breast_4.jpeg", dpi = 600)
-
-
-
-  
   
 ```
 
@@ -215,7 +241,6 @@ write.csv(matrix, file = "AfterPreparingData/df_after_aggregate_ovarian.csv")
 
 ```
 
-
 ##Load data ovary
 
 ```{r}
@@ -223,7 +248,7 @@ write.csv(matrix, file = "AfterPreparingData/df_after_aggregate_ovarian.csv")
 
 matrix_ovary <- read.csv("AfterPreparingData/df_after_aggregate_ovarian.csv", row.names = 1)
 
-matrix_ovary <- matrix_ovary %>% 
+matrix_ovary <- matrix %>% 
   select(-icgc_donor_id) 
  
 
@@ -231,7 +256,6 @@ matrix_ovary$donor_vital_status <- as.factor(matrix_ovary$donor_vital_status)
 
 
 ```
-
 
 
 ##Decision tree - breast cancer 
@@ -252,6 +276,48 @@ dev.off()
 ```
 
 
+##Training/Validation data dividing - breast
+
+```{r}
+
+matrix_ovary <- matrix_ovary %>% 
+  filter(donor_vital_status != '')
+
+split <- createDataPartition(y = matrix_ovary$donor_vital_status, p = 0.8)
+train_cancer <- matrix_ovary[split$Resample1,]
+valid_cancer <- matrix_ovary[-split$Resample1,]
+
+
+data <- train_cancer
+remove(train_cancer)
+
+
+tree_1 <- rpart(as.matrix(donor_vital_status) ~ as.matrix(data[, colnames(data) != "donor_vital_status"]), data = data)
+
+```
+#Training_data_confusion_matrix
+
+```{r}
+
+pred_risk_train <- predict(object = tree_1, newdata = data, type = "class")
+
+confusionMatrix(data = pred_risk_train, reference = data$donor_vital_status, positive = "alive", mode = "everything")
+```
+
+#Validation_data_confusion_matrix
+
+```{r}
+
+data <- valid_cancer
+
+pred_risk_valid <- predict(object = tree_1, newdata = data, type = "class")
+
+confusionMatrix(data = pred_risk_valid, reference = data$donor_vital_status,positive = "alive", mode = "everything")
+
+remove(tree_1, split, data, valid_cancer, pred_risk_train, pred_risk_valid)
+```
+
+
 ##Multiple linear regression
 
 ```{r}
@@ -260,7 +326,7 @@ matrix_ovary <- matrix_ovary %>%
   select('MON1A', 'SGOL2','PSRC1','MPZL2','C17orf89','DMRTA1','LOC253012','SRF', 'ACTR6','GJB1','ISG20L2','ASB16','VCAM1','IL5','CACNB1','NSF','ZNF780A',
          'KLHL10','ZC3H14','FBXW10','NR2F1','SMPD3', 'donor_vital_status') 
 
-MLR_ovary <- lm(as.matrix(as.numeric(matrix_ovary$donor_vital_status)) ~ as.matrix(matrix_ovary[, colnames(matrix_ovary) != "donor_vital_status"]))
+MLR_ovary <- glm(as.matrix(as.numeric(matrix_ovary$donor_vital_status)) ~ as.matrix(matrix_ovary[, colnames(matrix_ovary) != "donor_vital_status"]))
 
 summary(MLR_ovary)
 
@@ -278,44 +344,44 @@ ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, KLHL10, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, KLHL10, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_ovary_1", dpi = 600)
+ggsave(filename = "Figures/alive_decease_ovary_1.jpeg", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, FBXW10, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, FBXW10, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_ovary_2", dpi = 600)
+ggsave(filename = "Figures/alive_decease_ovary_2.jpeg", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, NR2F1, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, NR2F1, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_ovary_3", dpi = 600)
+ggsave(filename = "Figures/alive_decease_ovary_3.jpeg", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, PSRC1, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, PSRC1, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_ovary_4", dpi = 600)
+ggsave(filename = "Figures/alive_decease_ovary_4.jpeg", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, MPZL2, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, MPZL2, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_ovary_5", dpi = 600)
+ggsave(filename = "Figures/alive_decease_ovary_5.jpeg", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, LOC253012, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, LOC253012, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_ovary_6", dpi = 600)
+ggsave(filename = "Figures/alive_decease_ovary_6.jpeg", dpi = 600)
 
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, ISG20L2, fill = donor_vital_status))+
   geom_boxplot(aes(donor_vital_status, ISG20L2, fill = donor_vital_status), width=0.1)
 
-ggsave(filename = "Figures/alive_decease_ovary_7", dpi = 600)
+ggsave(filename = "Figures/alive_decease_ovary_7.jpeg", dpi = 600)
 
   
 ```
@@ -330,7 +396,7 @@ row.names(matrix_ovary_1) <- matrix_ovary$donor_vital_status
 
 remove(matrix_ovary)
 
-tiff("Figures/heatmap_ovary_expression.jpeg" , units="in", width=5, height=5, res=300)
+jpeg("Figures/heatmap_ovary_expression.jpeg" , units="in", width=5, height=5, res=300)
 
 hm_breast <- heatmap(matrix_ovary_1)
 
