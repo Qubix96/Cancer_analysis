@@ -7,8 +7,11 @@ output: html_document
 
 ###Data preparing
 # Requirements 1
+
 ```{r echo=TRUE}
 library(tidyverse)
+Sys.setenv(LANG = "en")
+set.seed(123)
 ```
 
 ##Data joining
@@ -94,7 +97,7 @@ donor_ovary$cancer_type <- 'Ovarian cancer'
 #Join donor - mutation
 
 ```{r}
-#Join donor - mutation
+
 
 mutation_breast <- mutation %>% 
   left_join(donor_breast, by = c('icgc_donor_id', 'cancer_type')) 
@@ -116,6 +119,7 @@ remove(last)
 
 
 ```
+
 
 ##Selection of the most common mutations
 
@@ -152,7 +156,7 @@ mutation_wide_data <- pivot_wider(mutation_long_data, names_from = icgc_mutation
 
 remove(mutation_long_data)
 
-write.csv(mutation_wide_data, file = "AfterPreparingData/mutation_wide_data")
+write.csv(mutation_wide_data, file = "AfterPreparingData/mutation_wide_data.csv")
 ```
 
 ###Models - machine learning
@@ -163,73 +167,66 @@ write.csv(mutation_wide_data, file = "AfterPreparingData/mutation_wide_data")
 library(rpart)
 library(rpart.plot)
 library(caret)
-library(e1071)
-library(cluster)
-library(factoextra)
-library(ClusterR)
 library(corrplot)
 ```
 ##Hierarchic tree
 
 ```{r}
-mutation_wide_data <- read.csv("AfterPreparingData/mutation_wide_data", header = T, stringsAsFactors = T, row.names = 1)
+mutation_wide_data <-
+  read.csv("AfterPreparingData/mutation_wide_data", header = T, stringsAsFactors = T, row.names = 1)
 
 
 tree_1 <- rpart(formula = donor_vital_status ~  ., data = mutation_wide_data)
 
-rpart.plot(tree_1)
 
-png(filename = "Figures/tree.png", units="px", width=2000, height=1600, res=300)
+jpeg(filename = "Figures/tree.jpeg", units="px", width=2000, height=1600, res=300)
+
+rpart.plot(tree_1)
 
 
 dev.off()
 
 ```
 
-#Confusion matrix
-
-```{r}
-
-pred_risk_tree <- predict(object = tree_1, newdata = mutation_wide_data, type = "class")
-
-confusionMatrix(data = pred_risk_tree, reference = mutation_wide_data$donor_vital_status, positive = "alive", mode = "everything")
-
-```
 
 ##Training/Validation data dividing
 
 ```{r}
 
-
 split <- createDataPartition(y = mutation_wide_data$donor_vital_status, p = 0.8)
-
 
 train_cancer <- mutation_wide_data[split$Resample1,]
 valid_cancer <- mutation_wide_data[-split$Resample1,]
 
-tree_1 <- rpart(formula = donor_vital_status ~  ., data = mutation_wide_data)
 
 
-pred_risk_train <- predict(object = tree_1, newdata = train_cancer, type = "class")
+data <- train_cancer
+remove(train_cancer)
 
-pred_risk_valid <- predict(object = tree_1,newdata = valid_cancer, type = "class")
-
+tree_1 <- rpart(formula = donor_vital_status ~  ., data = data)
 ```
+
 #Training_data_confusion_matrix
 
 ```{r}
+pred_risk_train <- predict(object = tree_1, newdata = data, type = "class")
 
-confusionMatrix(data = pred_risk_train, reference = train_cancer$donor_vital_status, positive = "alive", mode = "everything")
-
+confusionMatrix(data = pred_risk_train, reference = data$donor_vital_status, positive = "alive", mode = "everything")
 ```
 
 #Validation_data_confusion_matrix
 
 ```{r}
+data <- valid_cancer
+pred_risk_valid <- predict(object = tree_1, newdata = data, type = "class")
 
-confusionMatrix(data = pred_risk_valid, reference = valid_cancer$donor_vital_status,positive = "alive", mode = "everything")
+confusionMatrix(data = pred_risk_valid, reference = data$donor_vital_status,positive = "alive", mode = "everything")
+
+remove(tree_1, split, data, valid_cancer, pred_risk_train, pred_risk_valid)
 ```
-##Multiple Linear Regression (MLR) - checking the significance of the mutation
+
+
+
 
 ```{r}
 
@@ -252,6 +249,8 @@ summary(MLR_model)
 
 
 ```
+
+
 ##Corplot
 
 ```{r}
@@ -264,41 +263,7 @@ corrplot(MLR_data, method = "color")
 ```
 
 
-
-##K-mean
-
-
-```{r}
-
-KM_data <- read.csv('AfterPreparingData/mutation_wide_data', header = T, stringsAsFactors = T, row.names = 1)
-
-
-KM_data <- KM_data %>% 
-  select(-cancer_type, -donor_age_at_diagnosis) 
-
-
-KM_data$donor_vital_status <- as.numeric(KM_data$donor_vital_status)
-
-KM_data <- KM_data %>% 
-  scale()
-
-Optimal_Clusters_KMeans(data = KM_data, max_clusters = 15, criterion = "WCSSE")
-
-
-k_mean <- eclust(KM_data, "kmeans", nstart = 25, k = 7)
-
-
-fviz_cluster(k_mean, data = KM_data, geom = 'point', ggtheme = theme_grey())
-
-
-png(filename = "Figures/clustering.png", units="px", width=2000, height=1600, res=300)
-
-
-dev.off()
-
-```
-
-##Cluster - binary data
+##Cluster - binary data - tests
 
 
 ```{r}
