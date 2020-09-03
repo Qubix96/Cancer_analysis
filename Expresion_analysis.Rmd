@@ -111,7 +111,7 @@ stopCluster(cl)
 split <- createDataPartition(y = matrix_breast$donor_vital_status, p = 0.8)
 train_cancer <- matrix_breast[split$Resample1,]
 valid_cancer <- matrix_breast[-split$Resample1,]
-remove(matrix_breast)
+
 
 data <- train_cancer
 remove(train_cancer)
@@ -161,21 +161,33 @@ summary(MLR_breast)
 
 ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, UTP14A, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, UTP14A, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, UTP14A, fill = donor_vital_status), width=0.1) +
+  ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("UTP14A") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_breast_1.jpeg", dpi = 600)
 
 
 ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, STARD8, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, STARD8, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, STARD8, fill = donor_vital_status), width=0.1) +
+   ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("STARD8") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_breast_2.jpeg", dpi = 600)
 
 
 ggplot(data = matrix_breast) +
   geom_violin(aes(donor_vital_status, KCNV2, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, KCNV2, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, KCNV2, fill = donor_vital_status), width=0.1) +
+    ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("KCNV2") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_breast_3.jpeg", dpi = 600)
 
@@ -248,7 +260,7 @@ write.csv(matrix, file = "AfterPreparingData/df_after_aggregate_ovarian.csv")
 
 matrix_ovary <- read.csv("AfterPreparingData/df_after_aggregate_ovarian.csv", row.names = 1)
 
-matrix_ovary <- matrix %>% 
+matrix_ovary <- matrix_ovary %>% 
   select(-icgc_donor_id) 
  
 
@@ -281,7 +293,9 @@ dev.off()
 ```{r}
 
 matrix_ovary <- matrix_ovary %>% 
-  filter(donor_vital_status != '')
+  filter(donor_vital_status != '') %>% 
+  drop_na() %>% 
+  remove_empty('cols')
 
 split <- createDataPartition(y = matrix_ovary$donor_vital_status, p = 0.8)
 train_cancer <- matrix_ovary[split$Resample1,]
@@ -342,44 +356,72 @@ matrix_ovary <- matrix_ovary %>%
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, KLHL10, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, KLHL10, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, KLHL10, fill = donor_vital_status), width=0.1) +
+   ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("KLHL10") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_ovary_1.jpeg", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, FBXW10, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, FBXW10, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, FBXW10, fill = donor_vital_status), width=0.1) +
+   ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("FBXW10") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_ovary_2.jpeg", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, NR2F1, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, NR2F1, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, NR2F1, fill = donor_vital_status), width=0.1) +
+   ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("NR2F1") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_ovary_3.jpeg", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, PSRC1, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, PSRC1, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, PSRC1, fill = donor_vital_status), width=0.1) +
+   ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("PSRC1") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_ovary_4.jpeg", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, MPZL2, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, MPZL2, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, MPZL2, fill = donor_vital_status), width=0.1) +
+   ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("MPZL2") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_ovary_5.jpeg", dpi = 600)
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, LOC253012, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, LOC253012, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, LOC253012, fill = donor_vital_status), width=0.1) +
+   ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("LOC253012") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_ovary_6.jpeg", dpi = 600)
 
 
 ggplot(data = matrix_ovary) +
   geom_violin(aes(donor_vital_status, ISG20L2, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, ISG20L2, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, ISG20L2, fill = donor_vital_status), width=0.1) +
+   ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("ISG20L2") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_ovary_7.jpeg", dpi = 600)
 
