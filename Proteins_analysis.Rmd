@@ -164,7 +164,11 @@ summary(MLR_breast)
 
 ggplot(data = proteins_breast) +
   geom_violin(aes(donor_vital_status, FN1, fill = donor_vital_status))+
-  geom_boxplot(aes(donor_vital_status, FN1, fill = donor_vital_status), width=0.1)
+  geom_boxplot(aes(donor_vital_status, FN1, fill = donor_vital_status), width=0.1) +
+  ylab("Normalized_expression") +
+  xlab("Disease_status")+
+  ggtitle("FN1 - protein") +
+  theme(axis.text.x = element_text(angle = 50, vjust = 1, hjust=1))
 
 ggsave(filename = "Figures/alive_decease_breast_proteins_1.jpeg", dpi = 600)
 
